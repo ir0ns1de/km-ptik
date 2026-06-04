@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Portal</title>
-    <meta name="robots" content="noindex, nofollow" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fullscreen Iframe</title>
     <style>
         * {
             margin: 0;
@@ -13,169 +11,24 @@
             box-sizing: border-box;
         }
 
-        html,
-        body {
+        html, body {
             width: 100%;
             height: 100%;
             overflow: hidden;
-            user-select: none;
-            -webkit-user-select: none;
         }
 
         iframe {
             width: 100%;
-            height: 100vh;
+            height: 100%;
             border: none;
             display: block;
-            pointer-events: none;
-            /* iframe tidak bisa menerima event mouse langsung */
-        }
-
-        /* Overlay transparan di atas iframe — menangkap semua event mouse */
-        #overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            background: transparent;
-            cursor: default;
-        }
-
-        /* Layar penutup saat devtools terdeteksi */
-        #shield {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 99999;
-            background: #000;
-            color: #fff;
-            font-family: monospace;
-            font-size: 18px;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        #shield.active {
-            display: flex;
         }
     </style>
 </head>
-
 <body>
-
-    <!-- Overlay menangkap klik kanan & event sebelum sampai ke iframe -->
-    <div id="overlay"></div>
-
-    <iframe id="frame" src="https://daksin-kms.lovable.app" referrerpolicy="no-referrer"
-        sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
-
-    <!-- Layar hitam saat devtools terbuka -->
-    <div id="shield">
-        <span style="font-size:48px">⛔</span>
-        <span>Konten tidak tersedia</span>
-        <small style="color:#555;font-size:13px">Tutup Developer Tools untuk melanjutkan</small>
-    </div>
-
-    <script>
-        (function () {
-
-            const overlay = document.getElementById('overlay');
-            const shield = document.getElementById('shield');
-
-            /* ── 1. Blokir klik kanan di seluruh dokumen ── */
-            document.addEventListener('contextmenu', e => e.preventDefault(), true);
-            overlay.addEventListener('contextmenu', e => e.preventDefault(), true);
-
-            /* ── 2. Blokir keyboard shortcut DevTools ───── */
-            document.addEventListener('keydown', function (e) {
-                // F12
-                if (e.key === 'F12') { e.preventDefault(); e.stopImmediatePropagation(); return false; }
-                // Ctrl/Cmd + Shift + I / J / C / K (semua varian buka devtools)
-                if ((e.ctrlKey || e.metaKey) && e.shiftKey &&
-                    'ijckIJCK'.includes(e.key)) {
-                    e.preventDefault(); e.stopImmediatePropagation(); return false;
-                }
-                // Ctrl+U (view source)
-                if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) {
-                    e.preventDefault(); e.stopImmediatePropagation(); return false;
-                }
-                // Ctrl+S (save page)
-                if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
-                    e.preventDefault(); e.stopImmediatePropagation(); return false;
-                }
-            }, true);
-
-            /* ── 3. Deteksi DevTools via debugger trap ───
-               Teknik: debugger statement dalam getter property.
-               Saat devtools terbuka, evaluasi getter ini jauh lebih lambat. */
-            function isDevToolsOpen() {
-                let open = false;
-                const d = Object.defineProperty({}, '_', {
-                    get: function () { open = true; }
-                });
-                // Trick: console.log dengan objek memicu getter saat devtools aktif
-                console.log(d);
-                console.clear();
-                return open;
-            }
-
-            /* ── 4. Deteksi via ukuran window ───────────── */
-            function isDevToolsSize() {
-                return (window.outerWidth - window.innerWidth > 100) ||
-                    (window.outerHeight - window.innerHeight > 100);
-            }
-
-            /* ── 5. Deteksi via debugger timing ─────────── */
-            function isDevToolsTiming() {
-                const start = performance.now();
-                // eslint-disable-next-line no-debugger
-                debugger;
-                return performance.now() - start > 100;
-            }
-
-            /* ── Gabungkan semua deteksi & tampilkan shield ─ */
-            function checkDevTools() {
-                if (isDevToolsSize() || isDevToolsOpen() || isDevToolsTiming()) {
-                    shield.classList.add('active');
-                } else {
-                    shield.classList.remove('active');
-                }
-            }
-
-            setInterval(checkDevTools, 500);
-
-            /* ── 6. Blokir drag ──────────────────────────── */
-            document.addEventListener('dragstart', e => e.preventDefault(), true);
-
-            /* ── 7. Nonaktifkan print ────────────────────── */
-            window.addEventListener('beforeprint', e => e.preventDefault());
-
-            /* ── 8. Pastikan halaman ini tidak di-iframe
-                    oleh situs lain (anti-clickjacking) ───── */
-            if (window.top !== window.self) {
-                document.body.innerHTML = '';
-            }
-
-            /* ── 9. Override console agar tidak bisa dipakai
-                    untuk inspect dari luar ───────────────── */
-            const noop = () => { };
-            try {
-                Object.defineProperties(console, {
-                    log: { value: noop, writable: false, configurable: false },
-                    warn: { value: noop, writable: false, configurable: false },
-                    error: { value: noop, writable: false, configurable: false },
-                    info: { value: noop, writable: false, configurable: false },
-                    debug: { value: noop, writable: false, configurable: false },
-                    table: { value: noop, writable: false, configurable: false },
-                    dir: { value: noop, writable: false, configurable: false },
-                });
-            } catch (e) { }
-
-        })();
-    </script>
-
+    <iframe
+        src="https://daksin-kms.lovable.app"
+        allowfullscreen>
+    </iframe>
 </body>
-
 </html>
